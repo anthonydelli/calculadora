@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auditoría de Comisiones - Ajuste de Churn Excedente</title>
+    <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #0f172a;
+            --accent: #2563eb;
+            --success: #059669;
+            --danger: #dc2626;
+            --bg: #f1f5f9;
+            --border: #cbd5e1;
+        }
+
+        body { 
+            font-family: 'Titillium Web', sans-serif; 
+            background: var(--bg); 
+            color: var(--primary); 
+            padding: 20px; 
+            line-height: 1.4;
+        }
+
+        .container { 
+            max-width: 1000px; 
+            margin: 0 auto; 
+            background: white; 
+            padding: 30px; 
+            border-radius: 12px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
+        }
+        
+        h1, h2, h3 { font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+
+        .header-panel { 
+            display: grid; 
+            grid-template-columns: 1.5fr 1fr; 
+            gap: 20px; 
+            margin-bottom: 30px; 
+            padding-bottom: 20px; 
+            border-bottom: 2px solid var(--primary); 
+        }
+        
+        .card-mes { 
+            border: 1px solid var(--border); 
+            border-radius: 8px; 
+            padding: 20px; 
+            margin-bottom: 25px; 
+            background: #fff;
+            position: relative;
+        }
+
+        .mes-titulo { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 15px; 
+            background: var(--primary);
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .controles-auditoria { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); 
+            gap: 15px; 
+            background: #f8fafc; 
+            padding: 15px; 
+            border-radius: 6px; 
+            margin-bottom: 15px; 
+            border: 1px solid #e2e8f0;
+        }
+        
+        .pagos-realizados { display: flex; gap: 8px; align-items: center; margin-top: 5px; }
+        .pagos-realizados label { 
+            background: #fff; 
+            padding: 2px 6px; 
+            border: 1px solid var(--border); 
+            border-radius: 4px; 
+            font-size: 0.8rem;
+            cursor: pointer; 
+        }
+
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th { text-align: left; font-size: 0.8rem; color: #475569; padding: 8px; background: #f1f5f9; border-bottom: 2px solid var(--border); }
+        td { padding: 8px; border-bottom: 1px solid #f1f5f9; }
+
+        input, select { 
+            font-family: 'Titillium Web', sans-serif;
+            padding: 8px; 
+            border: 1px solid var(--border); 
+            border-radius: 4px; 
+            width: 100%; 
+        }
+        
+        /* Factura Style */
+        .factura { margin-top: 40px; border: 3px solid var(--primary); padding: 30px; border-radius: 4px; background: white; }
+        .linea-detalle { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #eee; }
+        .deduccion { color: var(--danger); font-weight: 600; background: #fff1f2; padding: 10px; border-radius: 4px; margin: 5px 0; }
+        .total-final { font-size: 2rem; text-align: right; margin-top: 25px; color: var(--success); font-weight: 700; border-top: 2px solid var(--primary); padding-top: 10px; }
+        
+        .badge-info { font-size: 0.7rem; padding: 2px 5px; border-radius: 3px; background: #e0f2fe; color: #0369a1; font-weight: bold; }
+
+        @media print { .no-print { display: none; } .container { box-shadow: none; border: none; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header-panel no-print">
+        <div>
+            <label><b>NOMBRE COMPLETO DEL ASESOR:</b></label>
+            <input type="text" id="nombreAsesor" placeholder="Ingrese nombre..." oninput="procesarTodo()">
+        </div>
+        <div>
+            <label><b>MES DE LIQUIDACIÓN:</b></label>
+            <input type="month" id="mesCorte" onchange="inicializarCiclos()">
+        </div>
+    </div>
+
+    <div id="ciclos-contenedor" class="no-print"></div>
+
+    <div id="factura-area" class="factura" style="display:none;">
+        <div style="text-align: center; border-bottom: 2px solid var(--primary); margin-bottom: 20px; padding-bottom: 10px;">
+            <h1 style="margin:0;">Liquidación Mensual de Comisiones</h1>
+            <p id="fac-asesor" style="margin: 5px 0; font-size: 1.2rem;"></p>
+            <p id="fac-periodo" style="color: #64748b; font-weight: 600;"></p>
+        </div>
+        
+        <div id="detalles-factura"></div>
+        
+        <div id="fac-deducciones" style="margin-top: 20px;"></div>
+
+        <div class="total-final" id="gran-total"></div>
+        
+        <div style="margin-top: 20px; font-size: 0.8rem; color: #64748b; border-top: 1px solid #eee; pt: 10px;">
+            * Nota: La empresa asume hasta un 10% de Churn. Deducciones aplicadas solo sobre el excedente.
+        </div>
+        
+        <button class="no-print" onclick="window.print()" style="width:100%; padding:15px; background:var(--primary); color:white; border:none; border-radius:4px; margin-top:20px; cursor:pointer; font-weight:700; font-family:'Titillium Web';">IMPRIMIR SUSTENTO CONTABLE</button>
+    </div>
+</div>
+
+<script>
+    const CONFIG = {
+        planes: {
+            "300": { alquiler: 2.00, compra: 2.00 },
+            "400": { alquiler: 3.50, compra: 2.50 },
+            "500": { alquiler: 5.00, compra: 9.00 },
+            "600": { alquiler: 5.25, compra: 9.50 },
+            "1000": { alquiler: 5.50, compra: 10.00 }
+        },
+        ciclos: [
+            { id: 0, label: "Mes Anterior", pct: 0.45, desfase: -1 },
+            { id: 1, label: "Hace 2 Meses", pct: 0.30, desfase: -2 },
+            { id: 2, label: "Hace 3 Meses", pct: 0.25, desfase: -3 }
+        ]
+    };
+
+    function inicializarCiclos() {
+        const fechaVal = document.getElementById('mesCorte').value;
+        if(!fechaVal) return;
+        
+        const fechaBase = new Date(fechaVal + "-01T12:00:00");
+        const contenedor = document.getElementById('ciclos-contenedor');
+        contenedor.innerHTML = "";
+
+        CONFIG.ciclos.forEach(ciclo => {
+            let f = new Date(fechaBase);
+            f.setMonth(f.getMonth() + ciclo.desfase);
+            let nombreMes = f.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
+
+            const card = document.createElement('div');
+            card.className = 'card-mes';
+            card.dataset.pct = ciclo.pct;
+            card.dataset.nombreMes = nombreMes;
+            
+            card.innerHTML = `
+                <div class="mes-titulo">
+                    <span style="font-weight:700;">${nombreMes.toUpperCase()}</span>
+                    <div style="display:flex; gap:15px; font-size:0.85rem;">
+                        <label><input type="checkbox" class="m-ind" onchange="procesarTodo()"> Meta Individual</label>
+                        <label><input type="checkbox" class="m-gru" onchange="procesarTodo()"> Meta Grupal</label>
+                    </div>
+                </div>
+
+                <div class="controles-auditoria">
+                    <div>
+                        <label><b>Ventas Origen:</b></label>
+                        <input type="number" class="v-ini" value="0" oninput="procesarTodo()">
+                    </div>
+                    <div>
+                        <label><b>Clientes Activos:</b></label>
+                        <input type="number" class="v-act" value="0" oninput="procesarTodo()">
+                    </div>
+                    <div>
+                        <label><b>Pagos ya efectuados:</b></label>
+                        <div class="pagos-realizados">
+                            <label><input type="checkbox" class="p-prev" value="0.45" onchange="procesarTodo()"> 45%</label>
+                            <label><input type="checkbox" class="p-prev" value="0.30" onchange="procesarTodo()"> 30%</label>
+                        </div>
+                    </div>
+                </div>
+
+                <table class="tabla-ventas">
+                    <thead><tr><th>Plan Mbps</th><th>Modalidad</th><th>Ventas</th><th>Bolsa 100%</th><th></th></tr></thead>
+                    <tbody></tbody>
+                </table>
+                <button onclick="agregarFila(this)" style="font-family:'Titillium Web'; padding:5px 15px; cursor:pointer; background:#eee; border:1px solid #ccc; border-radius:4px;">+ Añadir Plan</button>
+            `;
+            contenedor.appendChild(card);
+            agregarFila(card.querySelector('button'));
+        });
+        procesarTodo();
+    }
+
+    function agregarFila(btn) {
+        const tbody = btn.closest('.card-mes').querySelector('tbody');
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><input type="text" class="p-nombre" list="listaPlanes" oninput="procesarTodo()" placeholder="Ej: 500"></td>
+            <td><select class="p-mod" onchange="procesarTodo()"><option value="alquiler">Alquiler</option><option value="compra">Compra</option></select></td>
+            <td><input type="number" class="p-cant" value="0" oninput="procesarTodo()"></td>
+            <td class="p-sub" style="font-weight:600;">$0.00</td>
+            <td><button onclick="this.parentElement.parentElement.remove(); procesarTodo()" style="color:red; border:none; background:none; cursor:pointer; font-weight:bold;">✕</button></td>
+        `;
+        tbody.appendChild(tr);
+    }
+
+    function procesarTodo() {
+        const asesor = document.getElementById('nombreAsesor').value;
+        if(!asesor) return;
+
+        document.getElementById('factura-area').style.display = "block";
+        document.getElementById('fac-asesor').innerText = asesor.toUpperCase();
+        document.getElementById('fac-periodo').innerText = `PERIODO: ${document.getElementById('mesCorte').value}`;
+
+        let totalLiquidacion = 0;
+        let htmlVentas = "";
+        let htmlDeducciones = "";
+
+        document.querySelectorAll('.card-mes').forEach(card => {
+            const pctCiclo = parseFloat(card.dataset.pct);
+            const ini = parseFloat(card.querySelector('.v-ini').value) || 0;
+            const act = parseFloat(card.querySelector('.v-act').value) || 0;
+            const metaCheck = card.querySelector('.m-ind').checked && card.querySelector('.m-gru').checked;
+            const acelerador = metaCheck ? 1.65 : 1.0;
+            const mesNombre = card.dataset.nombreMes;
+
+            let bolsaBaseTotal = 0;
+            card.querySelectorAll('tbody tr').forEach(fila => {
+                const plan = fila.querySelector('.p-nombre').value;
+                const mod = fila.querySelector('.p-mod').value;
+                const cant = parseInt(fila.querySelector('.p-cant').value) || 0;
+                if(CONFIG.planes[plan]) {
+                    const sub = CONFIG.planes[plan][mod] * cant;
+                    fila.querySelector('.p-sub').innerText = `$${sub.toFixed(2)}`;
+                    bolsaBaseTotal += sub;
+                }
+            });
+
+            // 1. CÁLCULO PAGO ACTUAL (Sobre activos)
+            let pagoNetoMes = (bolsaBaseTotal * pctCiclo) * acelerador;
+            if(ini > 0) pagoNetoMes = (pagoNetoMes / ini) * act;
+
+            totalLiquidacion += pagoNetoMes;
+            htmlVentas += `
+                <div class="linea-detalle">
+                    <span>
+                        <span class="badge-info">Ciclo ${pctCiclo*100}%</span> <b>${mesNombre}</b><br>
+                        <small>Base 100%: $${bolsaBaseTotal.toFixed(2)} | Activos: ${act}/${ini} | Acelerador: ${metaCheck ? '65%' : '0%'}</small>
+                    </span>
+                    <span style="font-weight:600;">$${pagoNetoMes.toFixed(2)}</span>
+                </div>
+            `;
+
+            // 2. LÓGICA DE DEDUCCIÓN (Churn > 10%)
+            const tasaChurn = ini > 0 ? ((ini - act) / ini) : 0;
+            if(tasaChurn > 0.10) {
+                const excedenteChurn = tasaChurn - 0.10; // Solo restamos lo que supera el 10%
+                
+                let pctYaPagado = 0;
+                card.querySelectorAll('.p-prev:checked').forEach(c => pctYaPagado += parseFloat(c.value));
+
+                if(pctYaPagado > 0) {
+                    // La deducción es: (Bolsa Total * Acelerador * % Ya Pagado) * % Excedente de Churn
+                    const montoDeducir = (bolsaBaseTotal * acelerador * pctYaPagado) * excedenteChurn;
+                    
+                    totalLiquidacion -= montoDeducir;
+                    htmlDeducciones += `
+                        <div class="linea-detalle deduccion">
+                            <span>
+                                EXCEDENTE CHURN ${(excedenteChurn*100).toFixed(1)}% (${mesNombre})<br>
+                                <small>Penalidad sobre ${pctYaPagado*100}% pagado previamente (Empresa absorbió 10%)</small>
+                            </span>
+                            <span>-$${montoDeducir.toFixed(2)}</span>
+                        </div>
+                    `;
+                }
+            }
+        });
+
+        document.getElementById('detalles-factura').innerHTML = htmlVentas;
+        document.getElementById('fac-deducciones').innerHTML = htmlDeducciones;
+        document.getElementById('gran-total').innerHTML = `<span style="font-size:1rem; color:#64748b;">NETO A PAGAR:</span> $${totalLiquidacion.toFixed(2)}`;
+    }
+</script>
+
+<datalist id="listaPlanes">
+    <option value="300">
+    <option value="400">
+    <option value="500">
+    <option value="600">
+    <option value="1000">
+</datalist>
+
+</body>
+</html>
