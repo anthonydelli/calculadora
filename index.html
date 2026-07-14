@@ -140,14 +140,16 @@
         return new Date(str);
     }
 
+    // FUNCIÓN CORREGIDA: Sincronización exacta por mes calendario sin cortes de días específicos
     function evaluarFiltroFechaEspecial(fechaInst, claveCiclo) {
         if (!fechaInst || isNaN(fechaInst.getTime())) return true;
-        let dia = fechaInst.getDate();
-        let mes = fechaInst.getMonth() + 1;
-        if (claveCiclo === "m0") return (mes === 6 && dia >= 3 && dia <= 30);
-        if (claveCiclo === "m1") return ((mes === 5 && dia >= 3) || (mes === 6 && dia <= 2));
-        if (claveCiclo === "m2") return ((mes === 4 && dia >= 3) || (mes === 5 && dia <= 2));
-        if (claveCiclo === "m3") return ((mes === 3 && dia >= 3) || (mes === 4 && dia <= 2));
+        let mes = fechaInst.getMonth() + 1; // 1 = Enero, 6 = Junio, etc.
+        
+        // Ajustamos al mes calendario completo para evitar pérdida de registros (como el 1 y 2 de junio)
+        if (claveCiclo === "m0") return (mes === 6);
+        if (claveCiclo === "m1") return (mes === 5);
+        if (claveCiclo === "m2") return (mes === 4);
+        if (claveCiclo === "m3") return (mes === 3);
         return true;
     }
 
